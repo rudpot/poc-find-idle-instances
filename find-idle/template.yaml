@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Find idle instances, send a notification and/or stop instances.
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 300
+
+Resources:
+  FindIdleFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: find_idle/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Role: !GetAtt FindIdleFunctionRole.Arn
+      # Events:
+      #   FindIdle:
+      #     Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+      #     Properties:
+      #       Path: /hello
+      #       Method: get
+
+  FindIdleFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: FindIdlePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AllowCloudwatchAccess
+                Effect: Allow
+                Action: 
+                  - 'cloudwatch:GetMetric*'
+                  - 'cloudwatch:ListMetric*'
+                Resource: '*'
+              - Sid: AllowEc2Access
+                Effect: Allow
+                Action: 
+                  - 'ec2:describeInstances'
+                  - 'cloudwatch:ListMetric*'
+                Resource: '*'
+
+  FindIdleSnsTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      DisplayName: "Notify on idle instances"
+      # Subscription:
+      #   - Endpoint:
+      #       Fn::GetAtt:
+      #         - "MyLambdaFunction"
+      #         - "Arn"
+      #     Protocol: "lambda"
+      TopicName: "NotifyOnIdleInstancses"
+      
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  # FindIdleApi:
+  #   Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+  #   Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+  FindIdleFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt FindIdleFunction.Arn
+  FindIdleFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt FindIdleFunctionRole.Arn
