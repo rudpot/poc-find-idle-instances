@@ -72,3 +72,4 @@ This is a proof of concept only. Things left to do:
 
 * Automate the `FindIdleFunction` Lambda execution to [run on a timer](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html). 
 
+* Add region selection and cross region functionality 
