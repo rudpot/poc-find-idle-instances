@@ -15,6 +15,7 @@ The POC consists of
 * Deploy the resources using the SAM CLI:
 
     ```bash
+    cd find-idle
     sam build --use-container
     sam deploy --guided
     ```
@@ -57,7 +58,7 @@ You should now receive an email with a list of instances that are deemed "idle" 
 
 ## A note on security
 
-Since we don't know what instances might be found "idle" we need to give our `StopIdleFunction` Lambda function permission to stop any EC2 instance, i.e. the `Resource` section of the IAM role contains `*`. Since we want to make sure we give our Lambda function the narrowest set of permissions, we have constrained the IAM role to require the presence of the `AutoStop` tag as a constraint to the `*` resource. That way the instance tag now performs three functions:
+Since we don't know what instances might be found "idle" we need to give our `StopIdleFunction` Lambda function permission to stop any EC2 instance, i.e. the `Resource` section of the [IAM role](https://github.com/rudpot/poc-find-idle-instances/blob/main/find-idle/template.yaml#L111-L122) contains `*`. Since we want to make sure we give our Lambda function the narrowest set of permissions, we have constrained the IAM role to require the presence of the `AutoStop` tag as a constraint to the `*` resource. That way the instance tag now performs three functions:
 
 * Tag an instance as eligible for stopping
 * Define a utilization target
@@ -67,7 +68,7 @@ Since we don't know what instances might be found "idle" we need to give our `St
 
 This is a proof of concept only. Things left to do:
 
-* Improve the utilization heuristic - currently it uses an average utilization over all the 5min datapoints (normal resolution) over an 8h period. You may wish to change the window over which to reason as well as using a "maximum" heuristic rather than an "average"
+* Improve the utilization heuristic - currently it uses an [average utilization](https://github.com/rudpot/poc-find-idle-instances/blob/main/find-idle/find_idle/app.py#L77-L82) over all the 5min datapoints (normal resolution) over an [8h period](https://github.com/rudpot/poc-find-idle-instances/blob/main/find-idle/find_idle/app.py#L72). You may wish to change the window over which to reason as well as using a "maximum" heuristic rather than an "average"
 
 * Automate the `FindIdleFunction` Lambda execution to [run on a timer](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html). 
 
