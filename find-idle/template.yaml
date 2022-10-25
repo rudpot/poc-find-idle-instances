@@ -9,12 +9,18 @@ Globals:
     Timeout: 300
 
 Resources:
+
   FindIdleFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: find_idle/
       Handler: app.lambda_handler
       Runtime: python3.9
+      Environment:
+        Variables:
+          TAG_NAME: AutoStop
+          DEFAULT_THRESHOLD: 10 
+          SNS_TOPIC_ARN: !Ref FindIdleSnsTopic
       Architectures:
         - x86_64
       Role: !GetAtt FindIdleFunctionRole.Arn
@@ -54,6 +60,12 @@ Resources:
                   - 'ec2:describeInstances'
                   - 'cloudwatch:ListMetric*'
                 Resource: '*'
+              - Sid: AllowSnSAccess
+                Effect: Allow
+                Action:
+                  - 'sns:publish'
+                Resource: 
+                  - !Ref FindIdleSnsTopic
 
   FindIdleSnsTopic:
     Type: "AWS::SNS::Topic"
@@ -66,7 +78,50 @@ Resources:
       #         - "Arn"
       #     Protocol: "lambda"
       TopicName: "NotifyOnIdleInstancses"
-      
+
+  StopIdleFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: stop_idle/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Role: !GetAtt StopIdleFunctionRole.Arn
+      # Events:
+      #   FindIdle:
+      #     Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+      #     Properties:
+      #       Path: /hello
+      #       Method: get
+
+  StopIdleFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: StopIdlePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AllowEc2Access
+                Effect: Allow
+                Action: 
+                  - 'ec2:stopInstances'
+                Resource: '*'
+                Condition:
+                  StringLike:
+                    ec2:ResourceTag/AutoStop: '*'
+
+
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
@@ -75,8 +130,17 @@ Outputs:
   #   Description: "API Gateway endpoint URL for Prod stage for Hello World function"
   #   Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
   FindIdleFunction:
-    Description: "Hello World Lambda Function ARN"
+    Description: "Function to find idle instances"
     Value: !GetAtt FindIdleFunction.Arn
   FindIdleFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
+    Description: "IAM Role created for FindIdle function"
     Value: !GetAtt FindIdleFunctionRole.Arn
+  StopIdleFunction:
+    Description: "Function to stop idle instances from SNS notification"
+    Value: !GetAtt StopIdleFunction.Arn
+  StopIdleFunctionIamRole:
+    Description: "IAM Role created for StopIdle function"
+    Value: !GetAtt StopIdleFunctionRole.Arn
+  IdleNotificationTopic:
+    Description: "SNS topic to subscribe email or StopIdle function to"
+    Value: !Ref FindIdleSnsTopic

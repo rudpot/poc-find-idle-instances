@@ -1,12 +1,16 @@
 import json
 import boto3
 import datetime
+import os
 
 ec2_client = boto3.client("ec2")
 cw_client = boto3.client("cloudwatch")
+sns_client = boto3.client("sns")
 
-KEY_NAME="AutoStop"
-DEFAULT_THRESHOLD=10
+TAG_NAME = os.environ.get("TAG_NAME", "AutoStop")
+DEFAULT_THRESHOLD = os.environ.get("DEFAULT_THRESHOLD", "10")
+SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
+AVG_HOURS = float(os.environ.get("AVG_HOURS", "8"))
 
 def get_running_instances():
     instances = []
@@ -25,9 +29,9 @@ def get_running_instances():
         )
         for ii in result.get('Reservations',[{}]):
             for jj in ii.get('Instances',[{}]):
-                threshold=DEFAULT_THRESHOLD
+                threshold=float(DEFAULT_THRESHOLD)
                 for kk in jj.get("Tags",[{}]):
-                    if (kk.get("Key","") == KEY_NAME) and (kk.get("Value","") != ""):
+                    if (kk.get("Key","") == TAG_NAME) and (kk.get("Value","") != ""):
                         threshold = float(kk.get("Value","-1"))
                 instances.append(
                     { 
@@ -65,7 +69,7 @@ def get_cw_data_for_instance(instance_id):
                     "ReturnData": True,
                 }
             ],
-            StartTime = datetime.datetime.now()-datetime.timedelta(hours=8),
+            StartTime = datetime.datetime.now()-datetime.timedelta(hours=AVG_HOURS),
             EndTime = datetime.datetime.now()
         )
         # print(instance_id)
@@ -83,26 +87,39 @@ def get_cw_data_for_instance(instance_id):
         print(repr(e))
 
 
+def send_sns_message(stoppable_instances):
+    try:
+        sns_client.publish(
+            TopicArn = SNS_TOPIC_ARN,
+            Message = json.dumps(stoppable_instances),
+        )
+    except Exception as e:
+        print(repr(e))
+
 
 def lambda_handler(event, context):
 
     running_instances = get_running_instances()
     print(running_instances)
 
-    killable_instances = []
+    stoppable_instances = []
     for instance_info in running_instances:
         instance_id = instance_info["id"]
         instance_threshold = instance_info["threshold"]
         cpu_avg = get_cw_data_for_instance(instance_id)
         if cpu_avg < instance_threshold:
-            killable_instances.append(instance_id)
+            stoppable_instances.append(instance_id)
+
+    if SNS_TOPIC_ARN != "":
+        send_sns_message(stoppable_instances)
+
 
     return {
         "statusCode": 200,
         "body": json.dumps({
-            "message": "hello world",
-            "data": killable_instances
+            "message": "List of stoppable instances attached",
+            "data": stoppable_instances
         }),
     }
 
-print(lambda_handler(None,None))
+# print(lambda_handler(None,None))
