@@ -6,6 +6,8 @@ The POC consists of
 * an SNS topic to notify about idle instances
 * a lambda function that can be subscribed to the SNS topic and stop idle instances
 
+![Architecture](find-idle-architecture.png)
+
 ## Licence and Warranty 
 
 MIT No Attribution
