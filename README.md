@@ -1,4 +1,6 @@
-# Proof of concept code to find and stop idle instances
+# Find and stop idle AWS instances
+
+This proof of concept (POC) code demonstrates how to find and stop idle instances in Amazon Web Services (AWS). It utilizes tags to identify eligible instances and define an activity level considered "idle".
 
 The POC consists of 
 
